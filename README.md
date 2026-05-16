@@ -31,27 +31,34 @@ npm install
 ## Desarrollo
 
 ```bash
-# Servidor de desarrollo (http://localhost:4200)
+# Terminal 1: Backend API (en TCGT-QA/)
+cd ../TCGT-QA
+npm run server
+# → 🚀 TCGT-QA API running on port 3001
+
+# Terminal 2: Panel (desarrollo local con hot reload)
 npx ng serve
+# → http://localhost:4200 (proxy automático a backend:3001)
 
-# Build de producción
-npx ng build --configuration production
-
-# Ejecutar tests
-npx vitest run
-
-# Tests en modo watch
-npx vitest
+# O con Docker (solo el panel, backend sigue local):
+sudo docker compose -f ../TCGT-QA/docker-compose.yml up --build
 ```
 
-## Docker
+## Producción (Docker)
 
 ```bash
-# Build y ejecutar con Docker Compose
-docker compose up --build
+# Terminal 1: Backend (en la máquina, con display para ver Chrome)
+cd TCGT-QA
+npm run server
 
-# El panel estará disponible en http://localhost:4200
+# Terminal 2: Panel en Docker
+cd TCGT-QA
+sudo docker compose up --build
+# → Panel en http://localhost:4200
+# → Backend en localhost:3001 (proxy via nginx)
 ```
+
+**Nota**: El backend corre fuera de Docker para que Playwright pueda abrir Chrome visible en el escritorio.
 
 ## Estructura del Proyecto
 
