@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { UpperCasePipe } from '@angular/common';
 import { TEST_DISCOVERY_SERVICE, EXECUTION_SERVICE } from '../../core/tokens/service-tokens';
 import { TestItem, ExecutionConfig, ExecutionRun } from '../../core/models';
+import { TestSelectionService } from '../../core/services/test-selection.service';
 import { CardComponent } from '../../shared/components/card/card.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { NotificationService } from '../../core/services/notification.service';
@@ -16,18 +17,33 @@ import { NotificationService } from '../../core/services/notification.service';
       <h1 class="text-2xl font-bold text-gray-900 mb-6">Ejecutar Tests</h1>
 
       @if (activeRun()) {
-        <!-- Execution in progress -->
-        <app-card title="Ejecución en curso">
+        <!-- Execution in progress or finished -->
+        <app-card [title]="activeRun()!.status === 'running' ? 'Ejecución en curso' : 'Resultado'">
           <div class="space-y-4">
             <div class="flex items-center gap-3">
-              <div class="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span class="text-sm text-gray-700">Ejecutando {{ activeRun()!.config.tests.length }} tests...</span>
+              @if (activeRun()!.status === 'running') {
+                <div class="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              }
+              <span class="text-sm text-gray-700">{{ activeRun()!.config.tests?.length || selectedTests().length }} tests</span>
               <app-status-badge [status]="activeRun()!.status" [label]="activeRun()!.status" />
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-              <div class="bg-blue-600 h-2 rounded-full transition-all" [style.width.%]="progress()"></div>
-            </div>
+            @if (activeRun()!.status === 'running') {
+              <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div class="bg-blue-600 h-2 rounded-full animate-pulse w-full"></div>
+              </div>
+            }
             <p class="text-xs text-gray-500">Ambiente: {{ activeRun()!.config.environment | uppercase }} | Modo: {{ activeRun()!.config.mode }}</p>
+            <div class="flex gap-2">
+              @if (activeRun()!.status === 'running') {
+                <button class="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-300 rounded-md hover:bg-red-50" (click)="cancel()" data-testid="cancel-btn">
+                  ✕ Cancelar
+                </button>
+              } @else {
+                <button class="px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50" (click)="reset()" data-testid="new-execution-btn">
+                  ← Nueva ejecución
+                </button>
+              }
+            </div>
           </div>
         </app-card>
       } @else {
@@ -99,24 +115,32 @@ export class ExecutionConfigPageComponent implements OnInit {
   private readonly executionService = inject(EXECUTION_SERVICE);
   private readonly notificationService = inject(NotificationService);
   private readonly router = inject(Router);
+  private readonly testSelectionService = inject(TestSelectionService);
 
   tests = signal<TestItem[]>([]);
   selectedTests = signal<TestItem[]>([]);
   environment = signal<'qa' | 'stg'>('qa');
   mode = signal<'local' | 'browserstack'>('local');
   activeRun = signal<ExecutionRun | null>(null);
-  progress = signal(0);
 
   ngOnInit(): void {
-    this.testService.getAvailableTests().subscribe((tests) => this.tests.set(tests));
+    this.testService.getAvailableTests().subscribe((tests) => {
+      this.tests.set(tests);
+      // Load pre-selected tests from TestSelectionService
+      const preSelected = this.testSelectionService.selectedTests();
+      if (preSelected.length > 0) {
+        this.selectedTests.set(preSelected);
+      }
+    });
     this.executionService.getActiveExecution().subscribe((run) => {
       this.activeRun.set(run);
       if (run?.status === 'completed') {
-        this.progress.set(100);
         this.notificationService.success('Ejecución completada');
         setTimeout(() => this.router.navigate(['/reports', run.id]), 1500);
-      } else if (run?.status === 'running') {
-        this.simulateProgress();
+      } else if (run?.status === 'failed' || run?.status === 'cancelled') {
+        this.notificationService.error(`Ejecución ${run.status === 'failed' ? 'fallida' : 'cancelada'}`);
+        // Reset after 3 seconds so user can try again
+        setTimeout(() => this.activeRun.set(null), 3000);
       }
     });
   }
@@ -144,15 +168,19 @@ export class ExecutionConfigPageComponent implements OnInit {
     this.executionService.executeTests(config).subscribe();
   }
 
-  private simulateProgress(): void {
-    let p = 0;
-    const interval = setInterval(() => {
-      p += Math.random() * 15;
-      if (p >= 90) {
-        clearInterval(interval);
-        p = 90;
-      }
-      this.progress.set(Math.min(p, 90));
-    }, 500);
+  cancel(): void {
+    const run = this.activeRun();
+    if (run) {
+      this.executionService.cancelExecution(run.id).subscribe(() => {
+        this.notificationService.info('Ejecución cancelada');
+        this.activeRun.set(null);
+        this.testSelectionService.clear();
+      });
+    }
   }
+
+  reset(): void {
+    this.activeRun.set(null);
+  }
+
 }

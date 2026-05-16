@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { TEST_DISCOVERY_SERVICE } from '../../core/tokens/service-tokens';
 import { TestItem, TestFilter } from '../../core/models';
+import { TestSelectionService } from '../../core/services/test-selection.service';
 import { SearchInputComponent } from '../../shared/components/search-input/search-input.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -106,6 +107,7 @@ import { TestSelectionSummaryComponent } from './components/test-selection-summa
 export class TestListPageComponent implements OnInit {
   private readonly testService = inject(TEST_DISCOVERY_SERVICE);
   private readonly router = inject(Router);
+  private readonly testSelectionService = inject(TestSelectionService);
 
   loading = signal(true);
   allTests = signal<TestItem[]>([]);
@@ -181,6 +183,7 @@ export class TestListPageComponent implements OnInit {
   }
 
   goToExecute(): void {
+    this.testSelectionService.setSelection(this.selectedTests());
     this.router.navigate(['/execute']);
   }
 }
