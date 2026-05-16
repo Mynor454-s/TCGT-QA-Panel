@@ -1,59 +1,179 @@
-# TCGTQAPanel
+# TCGT-QA Panel
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.11.
+Panel de gestión de automatizaciones para el equipo de QA. Permite gestionar, ejecutar y monitorear los tests de Playwright del proyecto TCGT-QA desde una interfaz web amigable.
 
-## Development server
+## Características
 
-To start a local development server, run:
+- **Gestión de Tests** — Listar, filtrar y seleccionar tests por archivo, tag, prioridad o flujo (B2B/B2C/TCJ)
+- **Data Providers** — Visualizar y editar datasets de prueba (`data_new_client.json`, `test-matrix.json`)
+- **Ejecución** — Configurar y lanzar ejecuciones (local o BrowserStack) en ambiente QA o STG
+- **Reportes** — Ver resultados detallados con logs, screenshots, traces y reporte HTML de Playwright
+- **Historial** — Consultar ejecuciones pasadas con filtros y tendencias
+- **Scheduling** — Programar ejecuciones automáticas (UI lista, ejecución requiere backend futuro)
+- **Configuración** — Gestionar ambientes, conexión con TCGT-QA y credenciales de BrowserStack
 
-```bash
-ng serve
-```
+## Requisitos
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- Node.js 18+
+- npm 9+
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Instalación
 
 ```bash
-ng generate --help
+# Clonar el repositorio
+git clone <repo-url>
+cd TCGT-QA-Panel
+
+# Instalar dependencias
+npm install
 ```
 
-## Building
-
-To build the project run:
+## Desarrollo
 
 ```bash
-ng build
+# Servidor de desarrollo (http://localhost:4200)
+npx ng serve
+
+# Build de producción
+npx ng build --configuration production
+
+# Ejecutar tests
+npx vitest run
+
+# Tests en modo watch
+npx vitest
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Docker
 
 ```bash
-ng test
+# Build y ejecutar con Docker Compose
+docker compose up --build
+
+# El panel estará disponible en http://localhost:4200
 ```
 
-## Running end-to-end tests
+## Estructura del Proyecto
 
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
+```
+src/app/
+├── core/                     # Servicios, interfaces, modelos, tokens DI
+│   ├── interfaces/           # Contratos de servicio (ITestDiscoveryService, etc.)
+│   ├── models/               # Tipos TypeScript compartidos
+│   ├── tokens/               # InjectionTokens para Angular DI
+│   └── services/
+│       ├── mock/             # Implementaciones mock (v1)
+│       └── local/            # Implementaciones con IndexedDB
+├── shared/                   # Componentes, pipes y directivas reutilizables
+│   ├── components/           # Card, DataTable, StatusBadge, SearchInput, etc.
+│   └── pipes/                # duration, statusLabel, relativeDate
+├── layout/                   # Header, NotificationToast, LoadingOverlay
+└── features/                 # Módulos de funcionalidad (lazy loaded)
+    ├── dashboard/
+    ├── test-management/
+    ├── data-provider/
+    ├── execution/
+    ├── reports/
+    ├── history/
+    ├── scheduling/
+    └── configuration/
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Módulos
 
-## Additional Resources
+### Dashboard (`/dashboard`)
+Vista principal con métricas resumidas, ejecuciones recientes y acceso rápido a todos los módulos.
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+### Gestión de Tests (`/tests`)
+Lista todos los tests disponibles del proyecto TCGT-QA. Permite:
+- Filtrar por prioridad (P0-P3), flujo (B2B/B2C/TCJ), tags (@smoke, @e2e, @validation)
+- Buscar por nombre
+- Seleccionar tests para ejecución
+
+### Data Providers (`/data-providers`)
+Visualiza los datasets de prueba:
+- `data_new_client.json` — Datos de clientes (keys: Marcos, Monther)
+- `data_new_client_TCJ.json` — Datos para flujo TCJ
+- `test-matrix.json` — Registro central de escenarios
+
+### Ejecutar (`/execute`)
+Configura y lanza ejecuciones:
+1. Seleccionar tests
+2. Elegir ambiente (QA/STG)
+3. Elegir modo (Local/BrowserStack)
+4. Ejecutar y ver progreso en tiempo real
+
+### Reportes (`/reports/:runId`)
+Muestra resultados detallados de una ejecución:
+- Resumen (total, exitosos, fallidos, tasa de éxito)
+- Tabla de resultados por test con estado, duración y errores
+- Integración con reporte HTML de Playwright
+
+### Historial (`/history`)
+Lista todas las ejecuciones pasadas con:
+- Fecha, estado, cantidad de tests, resultados, duración, ambiente
+- Click para ver el reporte completo
+
+### Scheduling (`/scheduling`)
+Configura ejecuciones programadas:
+- Nombre, cron expression, tags, ambiente, modo
+- Los schedules se guardan en IndexedDB
+- La ejecución automática requiere backend (futuro)
+
+### Configuración (`/configuration`)
+Gestiona:
+- Conexión con TCGT-QA (path local o URL remota)
+- URLs de ambientes QA y STG
+- Credenciales de BrowserStack
+- Preferencias (ambiente y modo por defecto)
+
+## Arquitectura
+
+### Service Layer
+El panel usa un patrón de **Interfaces + DI Tokens** que permite reemplazar implementaciones sin cambiar componentes:
+
+```typescript
+// Interface definida en core/interfaces/
+interface ITestDiscoveryService { ... }
+
+// Token en core/tokens/
+const TEST_DISCOVERY_SERVICE = new InjectionToken<ITestDiscoveryService>('...');
+
+// Mock (v1) en core/services/mock/
+class MockTestDiscoveryService implements ITestDiscoveryService { ... }
+
+// Futuro: HTTP implementation
+class HttpTestDiscoveryService implements ITestDiscoveryService { ... }
+```
+
+Para conectar un backend real, solo hay que crear nuevas implementaciones y cambiar el provider en `app.config.ts`.
+
+### Persistencia
+- **v1**: IndexedDB para historial, schedules y configuración
+- **Futuro**: API REST + base de datos
+
+### Styling
+- Tailwind CSS 3 para estilos utilitarios
+- Componentes custom (sin dependencia de librería UI)
+
+## Tech Stack
+
+| Tecnología | Versión | Uso |
+|-----------|---------|-----|
+| Angular | 21.2 | Framework frontend |
+| TypeScript | 5.9 | Lenguaje |
+| Tailwind CSS | 3.x | Estilos |
+| Vitest | 4.x | Test runner |
+| fast-check | latest | Property-based testing |
+| Docker | — | Deployment |
+| nginx | alpine | Servidor de producción |
+
+## Roadmap (Futuro)
+
+- [ ] Backend con Node.js/Express
+- [ ] Base de datos para persistencia real
+- [ ] WebSockets para resultados en tiempo real
+- [ ] Ejecución real de tests (no mock)
+- [ ] Notificaciones push/email
+- [ ] Integración con Jira
+- [ ] Soporte para múltiples proyectos de automatización

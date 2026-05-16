@@ -1,0 +1,22 @@
+<div
+  class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden"
+  [class.cursor-pointer]="clickable()"
+  [class.hover:shadow-md]="clickable()"
+  [class.hover:border-blue-300]="clickable()"
+  [class.transition-all]="clickable()"
+  (click)="onClick()"
+  [attr.data-testid]="'card-' + (title() || 'untitled')"
+>
+  @if (title()) {
+    <div class="px-4 py-3 border-b border-gray-100">
+      <h3 class="text-sm font-semibold text-gray-900">{{ title() }}</h3>
+      @if (subtitle()) {
+        <p class="text-xs text-gray-500 mt-0.5">{{ subtitle() }}</p>
+      }
+    </div>
+  }
+  <div class="p-4">
+    <ng-content />
+  </div>
+  <ng-content select="[card-actions]" />
+</div>
